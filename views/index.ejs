@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EskaBot</title>
+</head>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background-color: black;
+        color: white;
+        font-family: 'Roboto', sans-serif;
+        font-weight: 300;
+    }
+
+    a {
+        color: white;
+        text-decoration: none;
+    }
+
+    .logo {
+        filter: grayscale(100%) brightness(200%);
+    }
+
+    .profile {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+    }
+
+    .profile * {
+        margin-bottom: 2vh;
+    }
+
+    .profile .logo {
+        width: 10vw;
+    }
+
+    .pic {
+        border: gray solid .7vh;
+        border-radius: 50%;
+    }
+
+    .logout {
+        width: 5vw;
+        aspect-ratio: 4/1;
+        border-radius: 100vh;
+        background-color: crimson;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .login {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+    }
+
+    .login-btn {
+        margin-top: 10%;
+        width: 60%;
+        aspect-ratio: 4/1;
+        background-color: #1db954;
+        border: none;
+        border-radius: 100vh;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition-duration: .3s;
+        font-size: 4vh;
+    }
+
+    .login-btn:hover {
+        background-color: #1ed760;
+    }
+</style>
+
+<body>
+    <div id="container">
+        <% if (user) { %>
+            <div class="profile">
+                <img class="logo"
+                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Spotify_logo_with_text.svg/640px-Spotify_logo_with_text.svg.png"
+                    alt="Spotify">
+                <img class="pic" src="<%= user.body.images[0].url %> ">
+                <div>
+                    Logged in as <%= user.body.display_name %>
+                </div>
+                <a class="logout" href="/logout">Log Out</a>
+            </div>
+            <% } else {%>
+                <div class="login">
+                    <img class="logo"
+                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Spotify_logo_with_text.svg/640px-Spotify_logo_with_text.svg.png"
+                        alt="Spotify">
+                    <a class="login-btn" href="/login">Log In</a>
+                </div>
+                <% }%>
+    </div>
+</body>
+
+</html>
