@@ -21,13 +21,13 @@ const scopes = [
 ]
 const ESKA_URL = "https://www.eska.pl/goraca20/"
 
-require("dotenv").config()
+import dotenv from "dotenv"
+import express from "express"
+import axios from "axios"
+import cheerio from "cheerio"
 
-const app = require("express")()
-
-const axios = require("axios").default
-
-const cheerio = require("cheerio")
+dotenv.config()
+const app = express()
 
 const SpotifyWebApi = require("spotify-web-api-node"),
     spotifyApi = new SpotifyWebApi({
@@ -38,8 +38,8 @@ const SpotifyWebApi = require("spotify-web-api-node"),
 
 app.set('view engine', 'ejs')
 
-app.get("/", async (req, res) => {
-    let user
+app.get("/", async (req: express.Request, res: express.Response) => {
+    let user: object | boolean = false
     try {
         user = await spotifyApi.getMe()
     } catch (error) {
@@ -48,11 +48,11 @@ app.get("/", async (req, res) => {
     res.render("index", { user: user })
 })
 
-app.get("/login", (req, res) => {
+app.get("/login", (req: express.Request, res: express.Response) => {
     res.redirect(spotifyApi.createAuthorizeURL(scopes))
 })
 
-app.get("/callback", async (req, res) => {
+app.get("/callback", async (req: express.Request, res: express.Response) => {
     const error = req.query.error
     const code = req.query.code
     const state = req.query.state
@@ -65,7 +65,7 @@ app.get("/callback", async (req, res) => {
 
     spotifyApi
         .authorizationCodeGrant(code)
-        .then(data => {
+        .then((data: any) => {
             const access_token = data.body['access_token']
             const refresh_token = data.body['refresh_token']
             const expires_in = data.body['expires_in']
@@ -89,13 +89,13 @@ app.get("/callback", async (req, res) => {
                 /* console.log('access_token:', access_token) */
                 spotifyApi.setAccessToken(access_token)
             }, expires_in / 2 * 1000)
-        }).catch(error => {
+        }).catch((error: any) => {
             console.error('Error getting Tokens:', error)
             res.send(`Error getting Tokens: ${error}`)
         })
 })
 
-app.get("/logout", (req, res) => {
+app.get("/logout", (req: express.Request, res: express.Response) => {
     spotifyApi.resetAccessToken()
     spotifyApi.resetRefreshToken()
     res.redirect("/")
@@ -106,22 +106,27 @@ app.listen(port, () => {
     console.log("Server running on http://localhost:" + port)
 })
 
-function scrapeEska(html) {
+interface song {
+    title: string,
+    artists: string
+}
+
+function scrapeEska(html: string) {
     const $ = cheerio.load(html)
     let songElements = $(".single-hit")
-    let songs = []
-    songElements.each((i, element) => {
+    let songs: song[] = []
+    songElements.each((i: number, element: any) => {
         element = $(element)
         if (element.hasClass("radio--hook")) return
 
         let info = $(element.children(".single-hit__info"))
         let artists = ""
-        info.children("ul").children().each((i, e) => {
+        info.children("ul").children().each((i: number, e: any) => {
             artists += $(e).text().trim() + " "
         })
         songs.push({
             title: info.children(".single-hit__title").text(),
-            artist: artists.trim()
+            artists: artists.trim()
         })
 
         let position = element.find(".single-hit__position")
@@ -133,6 +138,7 @@ function scrapeEska(html) {
 async function mainLoop() {
     let html = (await axios.get(ESKA_URL)).data
     let songs = scrapeEska(html)
+    console.log(songs)
 }
 
 mainLoop()
