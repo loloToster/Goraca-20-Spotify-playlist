@@ -25,16 +25,16 @@ import dotenv from "dotenv"
 import express from "express"
 import axios from "axios"
 import cheerio from "cheerio"
+import SpotifyWebApi from "spotify-web-api-node"
 
 dotenv.config()
 const app = express()
 
-const SpotifyWebApi = require("spotify-web-api-node"),
-    spotifyApi = new SpotifyWebApi({
-        clientId: process.env.CLIENT_ID,
-        clientSecret: process.env.CLIENT_SECRET,
-        redirectUri: process.env.REDIRECT,
-    })
+const spotifyApi = new SpotifyWebApi({
+    clientId: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    redirectUri: process.env.REDIRECT,
+})
 
 app.set('view engine', 'ejs')
 
@@ -43,19 +43,18 @@ app.get("/", async (req: express.Request, res: express.Response) => {
     try {
         user = await spotifyApi.getMe()
     } catch (error) {
-        console.log("No user")
+        // console.log("No user")
     }
     res.render("index", { user: user })
 })
 
 app.get("/login", (req: express.Request, res: express.Response) => {
-    res.redirect(spotifyApi.createAuthorizeURL(scopes))
+    res.redirect(spotifyApi.createAuthorizeURL(scopes, "jakis status"))
 })
 
 app.get("/callback", async (req: express.Request, res: express.Response) => {
     const error = req.query.error
-    const code = req.query.code
-    const state = req.query.state
+    const code = req.query.code!
 
     if (error) {
         console.error('Callback Error:', error)
@@ -64,11 +63,11 @@ app.get("/callback", async (req: express.Request, res: express.Response) => {
     }
 
     spotifyApi
-        .authorizationCodeGrant(code)
+        .authorizationCodeGrant(code.toString())
         .then((data: any) => {
-            const access_token = data.body['access_token']
-            const refresh_token = data.body['refresh_token']
-            const expires_in = data.body['expires_in']
+            const access_token = data.body.access_token
+            const refresh_token = data.body.refresh_token
+            const expires_in = data.body.expires_in
 
             spotifyApi.setAccessToken(access_token)
             spotifyApi.setRefreshToken(refresh_token)
@@ -111,7 +110,7 @@ interface song {
     artists: string
 }
 
-function scrapeEska(html: string) {
+function scrapeEska(html: string): song[] {
     const $ = cheerio.load(html)
     let songElements = $(".single-hit")
     let songs: song[] = []
