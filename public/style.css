@@ -109,6 +109,11 @@ a {
     margin-bottom: 1vh;
 }
 
+.playlist:hover {
+    filter: opacity(80%);
+    cursor: pointer;
+}
+
 .playlist:last-child {
     margin-bottom: 0;
 }
@@ -121,4 +126,8 @@ a {
 .pl-name {
     padding-left: 1vw;
     padding-right: 1vw;
+}
+
+.set-pl {
+    background-color: yellowgreen;
 }

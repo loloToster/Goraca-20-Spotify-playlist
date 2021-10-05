@@ -50,6 +50,7 @@ const spotifyApi = new SpotifyWebApi({
 
 app.set("view engine", "ejs")
 app.use(express.static("public"))
+app.use(express.json())
 
 app.get("/", async (req: express.Request, res: express.Response) => {
     let user: any = false
@@ -58,11 +59,14 @@ app.get("/", async (req: express.Request, res: express.Response) => {
         user = await spotifyApi.getMe()
         playlists = (await spotifyApi.getUserPlaylists()).body.items
         // playlists = playlists.filter(pl => pl.owner.id == user.body.id)
-        playlists = playlists.concat(playlists) // ! for testing
+        // playlists = playlists.concat(playlists) // ! for testing
     } catch (error) {
         // console.log("No user")
     }
-    res.render("index", { user: user, playlists: playlists })
+    let setPl: string
+    let dataFile = readJSON("data.json")
+    setPl = dataFile.id
+    res.render("index", { user: user, playlists: playlists, setPl: setPl })
 })
 
 app.get("/login", (req: express.Request, res: express.Response) => {
@@ -111,6 +115,17 @@ app.get("/logout", (req: express.Request, res: express.Response) => {
     spotifyApi.resetAccessToken()
     spotifyApi.resetRefreshToken()
     res.redirect("/")
+})
+
+app.put("/pl-id", (req: express.Request, res: express.Response) => {
+    let dataFile = readJSON("data.json")
+    if (dataFile.id == req.body.id) {
+        dataFile.id = undefined
+    } else {
+        dataFile.id = req.body.id
+    }
+    writeJSON("data.json", dataFile)
+    res.json({ code: "success" })
 })
 
 const port = process.env.PORT || 88
