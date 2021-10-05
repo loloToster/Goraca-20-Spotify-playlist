@@ -26,6 +26,18 @@ import express from "express"
 import axios from "axios"
 import cheerio from "cheerio"
 import SpotifyWebApi from "spotify-web-api-node"
+import fs from "fs"
+
+function readJSON(file: string) {
+    return JSON.parse(fs.readFileSync(file).toString())
+}
+
+function writeJSON(file: string, data: object) {
+    fs.writeFileSync(file, JSON.stringify(data))
+}
+
+if (!fs.existsSync("data.json"))
+    writeJSON("data.json", {})
 
 dotenv.config()
 const app = express()
@@ -36,16 +48,21 @@ const spotifyApi = new SpotifyWebApi({
     redirectUri: process.env.REDIRECT,
 })
 
-app.set('view engine', 'ejs')
+app.set("view engine", "ejs")
+app.use(express.static("public"))
 
 app.get("/", async (req: express.Request, res: express.Response) => {
-    let user: object | boolean = false
+    let user: any = false
+    let playlists: any[] = []
     try {
         user = await spotifyApi.getMe()
+        playlists = (await spotifyApi.getUserPlaylists()).body.items
+        // playlists = playlists.filter(pl => pl.owner.id == user.body.id)
+        playlists = playlists.concat(playlists) // ! for testing
     } catch (error) {
         // console.log("No user")
     }
-    res.render("index", { user: user })
+    res.render("index", { user: user, playlists: playlists })
 })
 
 app.get("/login", (req: express.Request, res: express.Response) => {
@@ -54,7 +71,7 @@ app.get("/login", (req: express.Request, res: express.Response) => {
 
 app.get("/callback", async (req: express.Request, res: express.Response) => {
     const error = req.query.error
-    const code = req.query.code!
+    const code = req.query.code
 
     if (error) {
         console.error('Callback Error:', error)
@@ -62,36 +79,32 @@ app.get("/callback", async (req: express.Request, res: express.Response) => {
         return
     }
 
-    spotifyApi
-        .authorizationCodeGrant(code.toString())
-        .then((data: any) => {
-            const access_token = data.body.access_token
-            const refresh_token = data.body.refresh_token
-            const expires_in = data.body.expires_in
+    if (!code) return console.log("No code in callback")
 
-            spotifyApi.setAccessToken(access_token)
-            spotifyApi.setRefreshToken(refresh_token)
+    let data = await spotifyApi.authorizationCodeGrant(code.toString())
 
-            /* console.log('access_token:', access_token)
-            console.log('refresh_token:', refresh_token) */
+    const accessToken = data.body.access_token
+    const refreshToken = data.body.refresh_token
+    const expiresIn = data.body.expires_in
 
-            console.log(
-                `Sucessfully retreived access token. Expires in ${expires_in} s.`
-            )
-            res.redirect("/")
+    spotifyApi.setAccessToken(accessToken)
+    spotifyApi.setRefreshToken(refreshToken)
 
-            setInterval(async () => {
-                const data = await spotifyApi.refreshAccessToken()
-                const access_token = data.body['access_token']
+    /* console.log('access_token:', access_token)
+    console.log('refresh_token:', refresh_token) */
 
-                console.log('The access token has been refreshed!')
-                /* console.log('access_token:', access_token) */
-                spotifyApi.setAccessToken(access_token)
-            }, expires_in / 2 * 1000)
-        }).catch((error: any) => {
-            console.error('Error getting Tokens:', error)
-            res.send(`Error getting Tokens: ${error}`)
-        })
+    console.log(`Sucessfully retreived access token. Expires in ${expiresIn} s.`)
+    res.redirect("/")
+
+    setInterval(async () => {
+        const data = await spotifyApi.refreshAccessToken()
+        const access_token = data.body['access_token']
+
+        console.log('The access token has been refreshed!')
+        /* console.log('access_token:', access_token) */
+        spotifyApi.setAccessToken(access_token)
+    }, expiresIn / 2 * 1000)
+
 })
 
 app.get("/logout", (req: express.Request, res: express.Response) => {
@@ -110,10 +123,12 @@ interface song {
     artists: string
 }
 
-function scrapeEska(html: string): song[] {
+type listOfSongs = song[]
+
+function scrapeEska(html: string): listOfSongs {
     const $ = cheerio.load(html)
     let songElements = $(".single-hit")
-    let songs: song[] = []
+    let songs: listOfSongs = []
     songElements.each((i: number, element: any) => {
         element = $(element)
         if (element.hasClass("radio--hook")) return
@@ -134,10 +149,17 @@ function scrapeEska(html: string): song[] {
     return songs
 }
 
+let lastSongs: listOfSongs = []
+
 async function mainLoop() {
     let html = (await axios.get(ESKA_URL)).data
-    let songs = scrapeEska(html)
-    console.log(songs)
+    let currentSongs = scrapeEska(html)
+    if (JSON.stringify(lastSongs) == JSON.stringify(currentSongs)) {
+        console.log("The same songs")
+    } else {
+        console.log("Different songs")
+        lastSongs = currentSongs
+    }
 }
 
 mainLoop()
