@@ -20,13 +20,12 @@ body {
 
 #container>* {
     float: left;
+}
+
+.container-asset {
     padding: 2vh;
     background-color: #121212;
     border-radius: 2vh;
-}
-
-.flex-separator {
-    flex-grow: 1;
 }
 
 a {
@@ -41,7 +40,9 @@ a {
 .profile {
     display: flex;
     align-items: center;
+    justify-content: center;
     flex-direction: column;
+    height: 70vh;
 }
 
 .profile * {
@@ -94,10 +95,17 @@ a {
     background-color: #1ed760;
 }
 
-#playlist-list {
+.right {
     margin-left: 1vw;
-    max-height: 45vh;
+    height: 70vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#playlist-list {
+    height: 47vh;
     overflow-y: scroll;
+    margin-bottom: 1vw;
 }
 
 .playlist {
@@ -129,5 +137,5 @@ a {
 }
 
 .set-pl {
-    background-color: yellowgreen;
+    background: linear-gradient(270deg, #1db954 80%, #0000 100%);
 }

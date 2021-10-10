@@ -1,23 +1,23 @@
 const scopes = [
-    'ugc-image-upload',
-    'user-read-playback-state',
-    'user-modify-playback-state',
-    'user-read-currently-playing',
-    'streaming',
-    'app-remote-control',
-    'user-read-email',
-    'user-read-private',
-    'playlist-read-collaborative',
-    'playlist-modify-public',
-    'playlist-read-private',
-    'playlist-modify-private',
-    'user-library-modify',
-    'user-library-read',
-    'user-top-read',
-    'user-read-playback-position',
-    'user-read-recently-played',
-    'user-follow-read',
-    'user-follow-modify'
+    /* "ugc-image-upload",
+    "user-read-playback-state",
+    "user-modify-playback-state",
+    "user-read-currently-playing",
+    "streaming",
+    "app-remote-control",
+    "user-read-email",
+    "user-read-private", 
+    "playlist-read-collaborative",*/
+    "playlist-modify-public",
+    "playlist-read-private",
+    "playlist-modify-private",
+    /* "user-library-modify",
+    "user-library-read",
+    "user-top-read",
+    "user-read-playback-position",
+    "user-read-recently-played",
+    "user-follow-read",
+    "user-follow-modify" */
 ]
 const ESKA_URL = "https://www.eska.pl/goraca20/"
 
@@ -52,16 +52,24 @@ app.set("view engine", "ejs")
 app.use(express.static("public"))
 app.use(express.json())
 
+async function loggedIn() {
+    try {
+        await spotifyApi.getMe()
+    } catch (error) {
+        return false
+    }
+    return true
+}
+
+let mainLoopTimeout: any
+
 app.get("/", async (req: express.Request, res: express.Response) => {
     let user: any = false
     let playlists: any[] = []
-    try {
+    if (await loggedIn()) {
         user = await spotifyApi.getMe()
         playlists = (await spotifyApi.getUserPlaylists()).body.items
-        // playlists = playlists.filter(pl => pl.owner.id == user.body.id)
-        // playlists = playlists.concat(playlists) // ! for testing
-    } catch (error) {
-        // console.log("No user")
+        playlists = playlists.filter(pl => pl.owner.id == user.body.id)
     }
     let setPl: string
     let dataFile = readJSON("data.json")
@@ -78,7 +86,7 @@ app.get("/callback", async (req: express.Request, res: express.Response) => {
     const code = req.query.code
 
     if (error) {
-        console.error('Callback Error:', error)
+        console.error("Callback Error:", error)
         res.send(`Callback Error: ${error}`)
         return
     }
@@ -94,35 +102,38 @@ app.get("/callback", async (req: express.Request, res: express.Response) => {
     spotifyApi.setAccessToken(accessToken)
     spotifyApi.setRefreshToken(refreshToken)
 
-    /* console.log('access_token:', access_token)
-    console.log('refresh_token:', refresh_token) */
+    /* console.log("access_token:", access_token)
+    console.log("refresh_token:", refresh_token) */
 
     console.log(`Sucessfully retreived access token. Expires in ${expiresIn} s.`)
     res.redirect("/")
+    mainLoop()
 
     setInterval(async () => {
         const data = await spotifyApi.refreshAccessToken()
-        const access_token = data.body['access_token']
+        const access_token = data.body["access_token"]
 
-        console.log('The access token has been refreshed!')
-        /* console.log('access_token:', access_token) */
+        console.log("The access token has been refreshed!")
+        /* console.log("access_token:", access_token) */
         spotifyApi.setAccessToken(access_token)
     }, expiresIn / 2 * 1000)
 
 })
 
 app.get("/logout", (req: express.Request, res: express.Response) => {
+    clearTimeout(mainLoopTimeout)
     spotifyApi.resetAccessToken()
     spotifyApi.resetRefreshToken()
     res.redirect("/")
 })
 
-app.put("/pl-id", (req: express.Request, res: express.Response) => {
+app.put("/pl-id", async (req: express.Request, res: express.Response) => {
+    const plId: string = req.body.id
     let dataFile = readJSON("data.json")
-    if (dataFile.id == req.body.id) {
+    if (dataFile.id == plId) {
         dataFile.id = undefined
     } else {
-        dataFile.id = req.body.id
+        dataFile.id = plId
     }
     writeJSON("data.json", dataFile)
     res.json({ code: "success" })
@@ -167,15 +178,31 @@ function scrapeEska(html: string): listOfSongs {
 let lastSongs: listOfSongs = []
 
 async function mainLoop() {
+    let dataFile = readJSON("data.json")
+    if (!dataFile.id)
+        return
+
     let html = (await axios.get(ESKA_URL)).data
     let currentSongs = scrapeEska(html)
-    if (JSON.stringify(lastSongs) == JSON.stringify(currentSongs)) {
-        console.log("The same songs")
-    } else {
-        console.log("Different songs")
-        lastSongs = currentSongs
-    }
-}
+    if (JSON.stringify(lastSongs) == JSON.stringify(currentSongs))
+        return console.log("The same songs")
 
-mainLoop()
-//setInterval(mainLoop, 5000)
+    console.log("Different songs")
+    lastSongs = currentSongs
+
+    let trackItems = (await spotifyApi.getPlaylist(dataFile.id)).body.tracks.items
+    let plTracksUris = trackItems.map(item => { return { uri: item.track.uri } })
+    await spotifyApi.removeTracksFromPlaylist(dataFile.id, plTracksUris)
+    let newTracks: string[] = []
+
+    for (let i = 0; i < currentSongs.length; i++) {
+        const song = currentSongs[i]
+        let searchResults = (await spotifyApi.searchTracks(song.title + " " + song.artists)).body.tracks!.items
+        if (!searchResults)
+            return
+        newTracks.push(searchResults[0].uri)
+    }
+    await spotifyApi.replaceTracksInPlaylist(dataFile.id, newTracks)
+    //spotifyApi.changePlaylistDetails()
+    mainLoopTimeout = setTimeout(mainLoop, 10 * 60 * 1000)
+}

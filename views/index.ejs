@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
     <script defer src="/main.js"></script>
     <title>EskaBot</title>
@@ -13,7 +14,7 @@
 <body>
     <div id="container">
         <% if (user) { %>
-            <div class="profile">
+            <div class="profile container-asset">
                 <img class="logo"
                     src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Spotify_logo_with_text.svg/640px-Spotify_logo_with_text.svg.png"
                     alt="Spotify">
@@ -23,16 +24,18 @@
                 </div>
                 <a class="logout" href="/logout">Log Out</a>
             </div>
-
-            <div id="playlist-list">
-                <% playlists.forEach(pl=> { %>
-                    <div id="<%= pl.id %>" class="playlist <%= pl.id == setPl ? " set-pl" : "" %>">
-                        <img class="pl-image" src="<%= pl.images[0].url %>">
-                        <div class="pl-name">
-                            <%=pl.name %>
+            <div class="right">
+                <div id="playlist-list" class="container-asset">
+                    <% playlists.forEach(pl=> { %>
+                        <div id="<%= pl.id %>" class="playlist <%= pl.id == setPl ? " set-pl" : "" %>">
+                            <img class="pl-image" src="<%= pl.images.length ? pl.images[0].url : " /default-pl.png" %>">
+                            <div class="pl-name">
+                                <%=pl.name %>
+                            </div>
                         </div>
-                    </div>
-                    <% }) %>
+                        <% }) %>
+                </div>
+                <div style="flex-grow: 1;" class="container-asset"></div>
             </div>
 
             <% } else {%>
