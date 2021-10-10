@@ -105,16 +105,16 @@ app.get("/callback", async (req: express.Request, res: express.Response) => {
     /* console.log("access_token:", access_token)
     console.log("refresh_token:", refresh_token) */
 
-    console.log(`Sucessfully retreived access token. Expires in ${expiresIn} s.`)
+    // console.log(`Sucessfully retreived access token. Expires in ${expiresIn} s.`)
     res.redirect("/")
     mainLoop()
 
     setInterval(async () => {
         const data = await spotifyApi.refreshAccessToken()
-        const access_token = data.body["access_token"]
+        const access_token = data.body.access_token
 
-        console.log("The access token has been refreshed!")
-        /* console.log("access_token:", access_token) */
+        // console.log("The access token has been refreshed!")
+        // console.log("access_token:", access_token)
         spotifyApi.setAccessToken(access_token)
     }, expiresIn / 2 * 1000)
 
@@ -128,12 +128,12 @@ app.get("/logout", (req: express.Request, res: express.Response) => {
 })
 
 app.put("/pl-id", async (req: express.Request, res: express.Response) => {
-    const plId: string = req.body.id
+    const playlistId: string = req.body.id
     let dataFile = readJSON("data.json")
-    if (dataFile.id == plId) {
+    if (dataFile.id == playlistId) {
         dataFile.id = undefined
     } else {
-        dataFile.id = plId
+        dataFile.id = playlistId
     }
     writeJSON("data.json", dataFile)
     res.json({ code: "success" })
@@ -175,13 +175,28 @@ function scrapeEska(html: string): listOfSongs {
     return songs
 }
 
+const UPDATE_INTERVAL = 10
+const UPDATE_INTERVAL_MILLIS = UPDATE_INTERVAL * 60 * 1000
+
 let lastSongs: listOfSongs = []
+let iteration = UPDATE_INTERVAL
+let lastUpdate: Date
 
 async function mainLoop() {
     let dataFile = readJSON("data.json")
-    if (!dataFile.id)
-        return
+    if (dataFile.id) {
+        if (!(iteration % UPDATE_INTERVAL))
+            await updateSongsLoop(dataFile.id)
+        await updateDescriptionLoop(dataFile.id)
+    }
+    iteration++
+    if (iteration == UPDATE_INTERVAL + 1)
+        iteration = iteration - UPDATE_INTERVAL
+    mainLoopTimeout = setTimeout(mainLoop, 60 * 1000)
+}
 
+async function updateSongsLoop(playlistId: string) {
+    lastUpdate = new Date()
     let html = (await axios.get(ESKA_URL)).data
     let currentSongs = scrapeEska(html)
     if (JSON.stringify(lastSongs) == JSON.stringify(currentSongs))
@@ -190,9 +205,9 @@ async function mainLoop() {
     console.log("Different songs")
     lastSongs = currentSongs
 
-    let trackItems = (await spotifyApi.getPlaylist(dataFile.id)).body.tracks.items
+    let trackItems = (await spotifyApi.getPlaylist(playlistId)).body.tracks.items
     let plTracksUris = trackItems.map(item => { return { uri: item.track.uri } })
-    await spotifyApi.removeTracksFromPlaylist(dataFile.id, plTracksUris)
+    await spotifyApi.removeTracksFromPlaylist(playlistId, plTracksUris)
     let newTracks: string[] = []
 
     for (let i = 0; i < currentSongs.length; i++) {
@@ -202,7 +217,14 @@ async function mainLoop() {
             return
         newTracks.push(searchResults[0].uri)
     }
-    await spotifyApi.replaceTracksInPlaylist(dataFile.id, newTracks)
-    //spotifyApi.changePlaylistDetails()
-    mainLoopTimeout = setTimeout(mainLoop, 10 * 60 * 1000)
+    await spotifyApi.replaceTracksInPlaylist(playlistId, newTracks)
+}
+
+async function updateDescriptionLoop(playlistId: string) {
+    let now = new Date()
+    let diff = now.getTime() - lastUpdate.getTime()
+    let nextUpdateTime = UPDATE_INTERVAL_MILLIS - diff
+    nextUpdateTime = Math.round((nextUpdateTime / 1000) / 60)
+    let lastUpdateTime = UPDATE_INTERVAL - nextUpdateTime           // Last updated ${lastUpdateTime} minutes ago, next update in ${nextUpdateTime} minutes 
+    await spotifyApi.changePlaylistDetails(playlistId, { description: `Ostatnia aktualizacja ${lastUpdateTime} minut temu, następna aktualizacja za ${nextUpdateTime} minut` })
 }
