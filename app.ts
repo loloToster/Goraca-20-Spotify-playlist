@@ -188,10 +188,10 @@ async function mainLoop() {
         if (!(iteration % UPDATE_INTERVAL))
             await updateSongsLoop(dataFile.id)
         await updateDescriptionLoop(dataFile.id)
+        iteration++
+        if (iteration == UPDATE_INTERVAL + 1)
+            iteration = iteration - UPDATE_INTERVAL
     }
-    iteration++
-    if (iteration == UPDATE_INTERVAL + 1)
-        iteration = iteration - UPDATE_INTERVAL
     mainLoopTimeout = setTimeout(mainLoop, 60 * 1000)
 }
 
@@ -226,5 +226,5 @@ async function updateDescriptionLoop(playlistId: string) {
     let nextUpdateTime = UPDATE_INTERVAL_MILLIS - diff
     nextUpdateTime = Math.round((nextUpdateTime / 1000) / 60)
     let lastUpdateTime = UPDATE_INTERVAL - nextUpdateTime           // Last updated ${lastUpdateTime} minutes ago, next update in ${nextUpdateTime} minutes 
-    await spotifyApi.changePlaylistDetails(playlistId, { description: `Ostatnia aktualizacja ${lastUpdateTime} minut temu, następna aktualizacja za ${nextUpdateTime} minut` })
+    await spotifyApi.changePlaylistDetails(playlistId, { description: `Radio ESKA. Ostatnia aktualizacja ${lastUpdateTime} minut temu, następna aktualizacja za ${nextUpdateTime} minut` })
 }
