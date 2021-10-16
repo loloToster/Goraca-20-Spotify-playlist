@@ -78,7 +78,7 @@ app.get("/", async (req: express.Request, res: express.Response) => {
 })
 
 app.get("/login", (req: express.Request, res: express.Response) => {
-    res.redirect(spotifyApi.createAuthorizeURL(scopes, "jakis status"))
+    res.redirect(spotifyApi.createAuthorizeURL(scopes, "some status"))
 })
 
 app.get("/callback", async (req: express.Request, res: express.Response) => {
@@ -181,8 +181,8 @@ async function updatePlaylist(playlistId: string, songs: listOfSongs) {
     for (let i = 0; i < songs.length; i++) {
         const song = songs[i]
         let searchResults = (await spotifyApi.searchTracks(song.title + " " + song.artists)).body.tracks!.items
-        if (!searchResults)
-            return
+        if (!searchResults || !searchResults.length)
+            continue
         newTracks.push(searchResults[0].uri)
     }
 
