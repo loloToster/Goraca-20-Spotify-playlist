@@ -60,14 +60,18 @@ a {
     width: 40vh;
 }
 
-.logout {
-    width: 5vw;
-    aspect-ratio: 4/1;
+.red-btn {
+    padding: .1vmin 1vmin;
     border-radius: 100vh;
     background-color: crimson;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin: 0 .3vmin;
+}
+
+.red-btns .red-btn {
+    float: left;
 }
 
 .login {
@@ -100,10 +104,11 @@ a {
     height: 70vh;
     display: flex;
     flex-direction: column;
+    max-width: 25vw;
 }
 
 #playlist-list {
-    height: 47vh;
+    min-height: 47vh;
     overflow-y: scroll;
     margin-bottom: 1vw;
 }

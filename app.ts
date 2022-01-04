@@ -143,6 +143,10 @@ app.put("/pl-id", async (req, res) => {
     res.json({ code: "success" })
 })
 
+app.get("/exit", (req, res) => {
+    process.exit(0)
+})
+
 const port = process.env.PORT || 88
 app.listen(port, () => {
     console.log("Server running on http://localhost:" + port)
