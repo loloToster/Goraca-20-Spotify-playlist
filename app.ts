@@ -76,9 +76,8 @@ app.get("/", async (req, res) => {
             .body.items
             .filter(pl => pl.owner.id == user!.id)
     }
-    let setPl: string
     let dataFile = readJSON("data.json")
-    setPl = dataFile.id
+    let setPl: string = dataFile.id
     res.render("index", {
         user: user, playlists: playlists, setPl: setPl, dashboard: {
             lastUpdate: lastUpdate,
@@ -116,6 +115,7 @@ app.get("/callback", async (req, res) => {
     console.log("refresh_token:", refresh_token) */
 
     // console.log(Sucessfully retreived access token. Expires in ${expiresIn} s.)
+    await mainLoop()
     res.redirect("/")
 
     setInterval(async () => {
@@ -138,11 +138,7 @@ app.get("/logout", (req, res) => {
 app.put("/pl-id", async (req, res) => {
     const playlistId: string = req.body.id
     let dataFile = readJSON("data.json")
-    if (dataFile.id == playlistId) {
-        dataFile.id = undefined
-    } else {
-        dataFile.id = playlistId
-    }
+    dataFile.id = dataFile.id == playlistId ? undefined : playlistId
     writeJSON("data.json", dataFile)
     res.json({ code: "success" })
 })
@@ -223,7 +219,9 @@ async function updateDescriptionLoop(playlistId: string) {
 }
 
 let iteration = UPDATE_INTERVAL
+let mainLoopTimeout: NodeJS.Timeout
 async function mainLoop() {
+    clearTimeout(mainLoopTimeout)
     try {
         if (!loggedIn()) return
         let dataFile = readJSON("data.json")
@@ -238,6 +236,5 @@ async function mainLoop() {
     } catch (err) {
         lastErrorHandler(err)
     }
+    mainLoopTimeout = setTimeout(mainLoop, 60 * 1000)
 }
-
-setInterval(mainLoop, 60 * 1000)
