@@ -18,9 +18,9 @@
                 <img class="logo"
                     src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Spotify_logo_with_text.svg/640px-Spotify_logo_with_text.svg.png"
                     alt="Spotify">
-                <img class="pic" src="<%= user.body.images[0].url %> ">
+                <img class="pic" src="<%= user.images[0].url %> ">
                 <div>
-                    Logged in as <%= user.body.display_name %>
+                    Logged in as <%= user.display_name %>
                 </div>
                 <a class="logout" href="/logout">Log Out</a>
             </div>
@@ -35,7 +35,15 @@
                         </div>
                         <% }) %>
                 </div>
-                <div style="flex-grow: 1;" class="container-asset"></div>
+                <div style="flex-grow: 1;" class="container-asset">
+                    lastUpdate:
+                    <br>
+                    <%= dashboard.lastUpdate.toLocaleString() %>
+                        <br>
+                        lastError:
+                        <br>
+                        <%= dashboard.lastError %>
+                </div>
             </div>
 
             <% } else {%>

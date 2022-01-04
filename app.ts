@@ -1,3 +1,5 @@
+process.title = "Goraca20"
+
 const scopes = [
     /* "ugc-image-upload",
     "user-read-playback-state",
@@ -22,24 +24,25 @@ const scopes = [
 const ESKA_URL = "https://www.eska.pl/goraca20/"
 
 import dotenv from "dotenv"
+dotenv.config()
+
 import express from "express"
 import axios from "axios"
 import cheerio from "cheerio"
 import SpotifyWebApi from "spotify-web-api-node"
-import fs from "fs"
+import { readFileSync, writeFileSync, existsSync } from "fs"
 
 function readJSON(file: string) {
-    return JSON.parse(fs.readFileSync(file).toString())
+    return JSON.parse(readFileSync(file).toString())
 }
 
 function writeJSON(file: string, data: object) {
-    fs.writeFileSync(file, JSON.stringify(data))
+    writeFileSync(file, JSON.stringify(data))
 }
 
-if (!fs.existsSync("data.json"))
+if (!existsSync("data.json"))
     writeJSON("data.json", {})
 
-dotenv.config()
 const app = express()
 
 const spotifyApi = new SpotifyWebApi({
@@ -52,36 +55,43 @@ app.set("view engine", "ejs")
 app.use(express.static("public"))
 app.use(express.json())
 
-async function loggedIn() {
-    try {
-        await spotifyApi.getMe()
-    } catch (error) {
-        return false
-    }
-    return true
+const loggedIn = () => Boolean(spotifyApi.getAccessToken())
+
+const UPDATE_INTERVAL = 10 // in minutes
+
+let lastUpdate: Date
+
+let lastError: any = "None"
+function lastErrorHandler(err: any) {
+    lastError = err
+    console.error(lastError)
 }
 
-let mainLoopTimeout: any
-
-app.get("/", async (req: express.Request, res: express.Response) => {
-    let user: any = false
-    let playlists: any[] = []
-    if (await loggedIn()) {
-        user = await spotifyApi.getMe()
-        playlists = (await spotifyApi.getUserPlaylists()).body.items
-        playlists = playlists.filter(pl => pl.owner.id == user.body.id)
+app.get("/", async (req, res) => {
+    let user: SpotifyApi.CurrentUsersProfileResponse | undefined
+    let playlists: SpotifyApi.PlaylistObjectSimplified[] = []
+    if (loggedIn()) {
+        user = (await spotifyApi.getMe()).body
+        playlists = (await spotifyApi.getUserPlaylists())
+            .body.items
+            .filter(pl => pl.owner.id == user!.id)
     }
     let setPl: string
     let dataFile = readJSON("data.json")
     setPl = dataFile.id
-    res.render("index", { user: user, playlists: playlists, setPl: setPl })
+    res.render("index", {
+        user: user, playlists: playlists, setPl: setPl, dashboard: {
+            lastUpdate: lastUpdate,
+            lastError: lastError
+        }
+    })
 })
 
-app.get("/login", (req: express.Request, res: express.Response) => {
+app.get("/login", (req, res) => {
     res.redirect(spotifyApi.createAuthorizeURL(scopes, "some status"))
 })
 
-app.get("/callback", async (req: express.Request, res: express.Response) => {
+app.get("/callback", async (req, res) => {
     const error = req.query.error
     const code = req.query.code
 
@@ -107,7 +117,6 @@ app.get("/callback", async (req: express.Request, res: express.Response) => {
 
     // console.log(Sucessfully retreived access token. Expires in ${expiresIn} s.)
     res.redirect("/")
-    mainLoop()
 
     setInterval(async () => {
         const data = await spotifyApi.refreshAccessToken()
@@ -120,14 +129,13 @@ app.get("/callback", async (req: express.Request, res: express.Response) => {
 
 })
 
-app.get("/logout", (req: express.Request, res: express.Response) => {
-    clearTimeout(mainLoopTimeout)
+app.get("/logout", (req, res) => {
     spotifyApi.resetAccessToken()
     spotifyApi.resetRefreshToken()
     res.redirect("/")
 })
 
-app.put("/pl-id", async (req: express.Request, res: express.Response) => {
+app.put("/pl-id", async (req, res) => {
     const playlistId: string = req.body.id
     let dataFile = readJSON("data.json")
     if (dataFile.id == playlistId) {
@@ -149,19 +157,17 @@ interface song {
     artists: string
 }
 
-type listOfSongs = song[]
-
-function scrapeEska(html: string): listOfSongs {
+function scrapeEska(html: string): song[] {
     const $ = cheerio.load(html)
     let songElements = $(".single-hit")
-    let songs: listOfSongs = []
-    songElements.each((i: number, element: any) => {
-        element = $(element)
+    let songs: song[] = []
+    songElements.each((i, el) => {
+        const element = $(el)
         if (element.hasClass("radio--hook")) return
 
         let info = $(element.children(".single-hit__info"))
         let artists = ""
-        info.children("ul").children().each((i: number, e: any) => {
+        info.children("ul").children().each((i, e) => {
             artists += $(e).text().trim() + " "
         })
         songs.push({
@@ -175,12 +181,12 @@ function scrapeEska(html: string): listOfSongs {
     return songs
 }
 
-async function updatePlaylist(playlistId: string, songs: listOfSongs) {
+async function updatePlaylist(playlistId: string, songs: song[]) {
     let newTracks: string[] = []
 
     for (let i = 0; i < songs.length; i++) {
         const song = songs[i]
-        let searchResults = (await spotifyApi.searchTracks(song.title + " " + song.artists)).body.tracks!.items
+        let searchResults = (await spotifyApi.searchTracks(song.title + " " + song.artists)).body.tracks?.items
         if (!searchResults || !searchResults.length)
             continue
         newTracks.push(searchResults[0].uri)
@@ -189,13 +195,7 @@ async function updatePlaylist(playlistId: string, songs: listOfSongs) {
     await spotifyApi.replaceTracksInPlaylist(playlistId, newTracks)
 }
 
-const UPDATE_INTERVAL = 10
-const UPDATE_INTERVAL_MILLIS = UPDATE_INTERVAL * 60 * 1000
-
 let lastSongs: string
-let iteration = UPDATE_INTERVAL
-let lastUpdate: Date
-
 async function updateSongsLoop(playlistId: string) {
     lastUpdate = new Date()
     let html = (await axios.get(ESKA_URL)).data
@@ -209,24 +209,35 @@ async function updateSongsLoop(playlistId: string) {
     await updatePlaylist(playlistId, currentSongs)
 }
 
+const UPDATE_INTERVAL_MS = UPDATE_INTERVAL * 60 * 1000
 async function updateDescriptionLoop(playlistId: string) {
     let now = new Date()
     let diff = now.getTime() - lastUpdate.getTime()
-    let nextUpdateTime = UPDATE_INTERVAL_MILLIS - diff
+    let nextUpdateTime = UPDATE_INTERVAL_MS - diff
     nextUpdateTime = Math.round((nextUpdateTime / 1000) / 60)
     let lastUpdateTime = UPDATE_INTERVAL - nextUpdateTime
-    await spotifyApi.changePlaylistDetails(playlistId, { description: `Radio ESKA 🎵 Zautomatyzowana playlista z piosenkami z Gorącej 20. Następna aktualizacja za ${nextUpdateTime} minut, ostatnia aktualizacja ${lastUpdateTime} minut temu.` })
+    await spotifyApi.changePlaylistDetails(playlistId, {
+        description:
+            `Radio ESKA 🎵 Zautomatyzowana playlista z piosenkami z Gorącej 20. Następna aktualizacja za ${nextUpdateTime} minut, ostatnia aktualizacja ${lastUpdateTime} minut temu.`
+    })
 }
 
+let iteration = UPDATE_INTERVAL
 async function mainLoop() {
-    let dataFile = readJSON("data.json")
-    if (dataFile.id) {
-        if (!(iteration % UPDATE_INTERVAL))
-            await updateSongsLoop(dataFile.id)
-        await updateDescriptionLoop(dataFile.id)
-        iteration++
-        if (iteration == UPDATE_INTERVAL + 1)
-            iteration = iteration - UPDATE_INTERVAL
+    try {
+        if (!loggedIn()) return
+        let dataFile = readJSON("data.json")
+        if (dataFile.id) {
+            if (!(iteration % UPDATE_INTERVAL))
+                await updateSongsLoop(dataFile.id)
+            await updateDescriptionLoop(dataFile.id)
+            iteration++
+            if (iteration == UPDATE_INTERVAL + 1)
+                iteration = iteration - UPDATE_INTERVAL
+        }
+    } catch (err) {
+        lastErrorHandler(err)
     }
-    mainLoopTimeout = setTimeout(mainLoop, 60 * 1000)
 }
+
+setInterval(mainLoop, 60 * 1000)
