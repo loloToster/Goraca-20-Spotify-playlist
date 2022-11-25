@@ -41,7 +41,7 @@
                 <div style="flex-grow: 1;" class="container-asset">
                     lastUpdate:
                     <br>
-                    <%= dashboard.lastUpdate.toLocaleString() %>
+                    <%= dashboard.lastUpdate?.toLocaleString() || "None" %>
                         <br>
                         lastError:
                         <br>
