@@ -1,19 +1,10 @@
 import axios from "axios"
 import * as cheerio from "cheerio"
-import { readFileSync, writeFileSync } from "fs"
 import { song } from "./types"
 
 const ESKA_URL = "https://www.eska.pl/goraca20/"
 
-export function readJSON(file: string) {
-    return JSON.parse(readFileSync(file).toString())
-}
-
-export function writeJSON(file: string, data: object) {
-    writeFileSync(file, JSON.stringify(data))
-}
-
-export async function scrapeEska() {
+export default async function scrapeEska() {
     let html = (await axios.get(ESKA_URL)).data
     const $ = cheerio.load(html)
     let songElements = $(".single-hit")
