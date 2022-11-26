@@ -1,13 +1,18 @@
 import dotenv from "dotenv"
 import express from "express"
 import JSONdb from "simple-json-db"
+import { existsSync } from "fs"
 
 import SpotifyHandler from "./spotify"
 
 process.title = "Goraca20"
 dotenv.config()
 
-const db = new JSONdb<string | undefined>(__dirname + "/../data.json")
+const dbFilePath =
+    existsSync(`${__dirname}/../data`) ?
+        `${__dirname}/../data/data.json` : `${__dirname}/../data.json`
+
+const db = new JSONdb<string | undefined>(dbFilePath)
 
 const spotifyHandler = new SpotifyHandler({
     clientId: process.env.CLIENT_ID,
