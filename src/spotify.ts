@@ -1,4 +1,5 @@
 import SpotifyWebApi from "spotify-web-api-node"
+import JSONdb from "simple-json-db"
 
 import { song } from "./types"
 import scrapeEska from "./scrapper"
@@ -24,7 +25,7 @@ export default class SpotifyHandler extends SpotifyWebApi {
     private mainLoopTimeout: NodeJS.Timeout | undefined
     private updateIntervalMS: number
 
-    constructor(options: Options) {
+    constructor(options: Options, private db: JSONdb<string | undefined>) {
         super(options)
 
         this.playlistId = options.playlistId
@@ -34,6 +35,42 @@ export default class SpotifyHandler extends SpotifyWebApi {
         this.mainLoopIteration = this.updateInterval
         this.mainLoopTimeout = undefined
         this.updateIntervalMS = this.updateInterval * 60 * 1000
+    }
+
+    loggedIn() {
+        return Boolean(this.getAccessToken())
+    }
+
+    setAccessToken(accessToken: string) {
+        this.db.set("at", accessToken)
+        super.setAccessToken(accessToken)
+    }
+
+    resetAccessToken() {
+        this.db.set("at", undefined)
+        super.resetAccessToken()
+    }
+
+    setRefreshToken(refreshToken: string) {
+        this.db.set("rt", refreshToken)
+        super.setRefreshToken(refreshToken)
+    }
+
+    resetRefreshToken() {
+        this.db.set("rt", undefined)
+        super.resetRefreshToken()
+    }
+
+    setExpires(expiresIn: number) {
+        this.db.set("expires", (Date.now() + expiresIn * 500).toString())
+    }
+
+    getExpires() {
+        return parseInt(this.db.get("expires") || "0")
+    }
+
+    resetExpires() {
+        this.db.set("expires", undefined)
     }
 
     async updatePlaylist(songs: song[]) {
@@ -50,6 +87,19 @@ export default class SpotifyHandler extends SpotifyWebApi {
         }
 
         await this.replaceTracksInPlaylist(this.playlistId, newTracks)
+    }
+
+    async refreshTokenLoopWrapper() {
+        if (Date.now() > this.getExpires()) {
+            const res = await this.refreshAccessToken()
+            const at = res.body.access_token
+            const expiresIn = res.body.expires_in
+
+            this.setAccessToken(at)
+            this.setExpires(expiresIn)
+        }
+
+        return this.getAccessToken()
     }
 
     private async songsLoopWrapper() {
@@ -80,7 +130,9 @@ export default class SpotifyHandler extends SpotifyWebApi {
         if (this.mainLoopTimeout) clearTimeout(this.mainLoopTimeout)
 
         try {
-            if (!this.getAccessToken()) return
+            if (!this.loggedIn()) return
+
+            await this.refreshTokenLoopWrapper()
 
             if (this.playlistId) {
                 if (!(this.mainLoopIteration % this.updateInterval))

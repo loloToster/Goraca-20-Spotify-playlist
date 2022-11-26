@@ -13,11 +13,13 @@ const spotifyHandler = new SpotifyHandler({
     clientId: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
     redirectUri: process.env.REDIRECT,
+    accessToken: db.get("at"),
+    refreshToken: db.get("rt"),
     updateInterval: 10,
     description: (last, next) =>
         `Radio ESKA 🎵 Zautomatyzowana playlista z piosenkami z Gorącej 20. Następna aktualizacja za ${next} minut, ostatnia aktualizacja ${last} minut temu.`,
     playlistId: db.get("playlistId")
-})
+}, db)
 
 const app = express()
 
@@ -30,7 +32,7 @@ app.get("/", async (req, res) => {
     let user: SpotifyApi.CurrentUsersProfileResponse | undefined
     let playlists: SpotifyApi.PlaylistObjectSimplified[] = []
 
-    if (spotifyHandler.getAccessToken()) {
+    if (spotifyHandler.loggedIn()) {
         user = (await spotifyHandler.getMe()).body
         playlists = (await spotifyHandler.getUserPlaylists())
             .body.items
@@ -69,28 +71,21 @@ app.get("/callback", async (req, res) => {
 
     if (!code) return console.log("No code in callback")
 
-    let data = await spotifyHandler.authorizationCodeGrant(code.toString())
+    const data = await spotifyHandler.authorizationCodeGrant(code.toString())
 
-    const accessToken = data.body.access_token
-    const refreshToken = data.body.refresh_token
-    const expiresIn = data.body.expires_in
-
-    spotifyHandler.setAccessToken(accessToken)
-    spotifyHandler.setRefreshToken(refreshToken)
+    spotifyHandler.setAccessToken(data.body.access_token)
+    spotifyHandler.setRefreshToken(data.body.refresh_token)
+    spotifyHandler.setExpires(data.body.expires_in)
 
     spotifyHandler.loop()
     res.redirect("/")
-
-    setInterval(async () => {
-        const data = await spotifyHandler.refreshAccessToken()
-        const accessToken = data.body.access_token
-        spotifyHandler.setAccessToken(accessToken)
-    }, expiresIn / 2 * 1000)
 })
 
 app.get("/logout", (req, res) => {
     spotifyHandler.resetAccessToken()
     spotifyHandler.resetRefreshToken()
+    spotifyHandler.resetExpires()
+
     res.redirect("/")
 })
 
