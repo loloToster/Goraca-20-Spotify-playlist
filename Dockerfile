@@ -10,4 +10,6 @@ ENV PORT=8888
 
 EXPOSE 8888
 
+HEALTHCHECK --start-period=30s --retries=1 --interval=10s CMD node healthcheck.js
+
 CMD [ "npm", "start" ]

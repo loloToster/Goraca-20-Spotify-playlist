@@ -108,6 +108,11 @@ app.get("/exit", () => {
     process.exit(0)
 })
 
+app.get("/health", (req, res) => {
+    spotifyHandler.loggedIn() ? 
+        res.send() : res.status(500).send()
+})
+
 const port = process.env.PORT || 88
 app.listen(port, () => {
     console.log("Server running on http://localhost:" + port)
