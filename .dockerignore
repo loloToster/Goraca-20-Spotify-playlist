@@ -5,3 +5,4 @@ node_modules/
 .env.example
 cover.png
 README.md
+data.json
