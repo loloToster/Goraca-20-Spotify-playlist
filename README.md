@@ -17,7 +17,7 @@ A small project written in typescript that synchronizes a Spotify playlist with 
 7. login with your spotify account
 8. choose the playlist
 
-### [Working example](https://open.spotify.com/playlist/6w5BDXi8YGLK0UxPNPFSg4)
+### [Working example](https://open.spotify.com/playlist/3g1C29dQ5aF8u84KzwH1zQ)
 
 ### Docker
 
