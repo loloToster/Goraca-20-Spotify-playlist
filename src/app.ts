@@ -20,9 +20,7 @@ const spotifyHandler = new SpotifyHandler({
     redirectUri: process.env.REDIRECT,
     accessToken: db.get("at"),
     refreshToken: db.get("rt"),
-    updateInterval: 10,
-    description: (last, next) =>
-        `Radio ESKA 🎵 Zautomatyzowana playlista z piosenkami z Gorącej 20. Następna aktualizacja za ${next} minut, ostatnia aktualizacja ${last} minut temu.`,
+    updateInterval: 5,
     playlistId: db.get("playlistId")
 }, db)
 
@@ -109,7 +107,7 @@ app.get("/exit", () => {
 })
 
 app.get("/health", (req, res) => {
-    spotifyHandler.loggedIn() ? 
+    spotifyHandler.loggedIn() ?
         res.send() : res.status(500).send()
 })
 

@@ -4,37 +4,27 @@ import JSONdb from "simple-json-db"
 import { song } from "./types"
 import scrapeEska from "./scrapper"
 
-type descriptionEval = (last: number, next: number) => string
-
 interface Options extends Exclude<ConstructorParameters<typeof SpotifyWebApi>[0], undefined> {
     updateInterval: number,
-    description: descriptionEval,
     playlistId: string | undefined
 }
 
 export default class SpotifyHandler extends SpotifyWebApi {
     playlistId: string | undefined
-    description: descriptionEval
     updateInterval: number
 
     lastUpdate: Date | undefined
     lastError: any
     lastSongs: string | undefined
 
-    private mainLoopIteration: number
     private mainLoopTimeout: NodeJS.Timeout | undefined
-    private updateIntervalMS: number
 
     constructor(options: Options, private db: JSONdb<string | undefined>) {
         super(options)
 
         this.playlistId = options.playlistId
-        this.description = options.description
         this.updateInterval = options.updateInterval
-
-        this.mainLoopIteration = this.updateInterval
         this.mainLoopTimeout = undefined
-        this.updateIntervalMS = this.updateInterval * 60 * 1000
     }
 
     loggedIn() {
@@ -112,20 +102,6 @@ export default class SpotifyHandler extends SpotifyWebApi {
         }
     }
 
-    private async descriptionLoopWrapper() {
-        if (!this.playlistId || !this.lastUpdate) return
-
-        const diff = new Date().getTime() - this.lastUpdate.getTime()
-        const nextUpdateTime = Math.round((this.updateIntervalMS - diff) / 1000 / 60)
-        const lastUpdateTime = this.updateInterval - nextUpdateTime
-
-        const description = this.description(lastUpdateTime, nextUpdateTime)
-
-        await this.changePlaylistDetails(this.playlistId, {
-            description
-        })
-    }
-
     async loop() {
         if (this.mainLoopTimeout) clearTimeout(this.mainLoopTimeout)
 
@@ -135,18 +111,13 @@ export default class SpotifyHandler extends SpotifyWebApi {
             await this.refreshTokenLoopWrapper()
 
             if (this.playlistId) {
-                if (!(this.mainLoopIteration % this.updateInterval))
-                    await this.songsLoopWrapper()
-                await this.descriptionLoopWrapper()
-                this.mainLoopIteration++
-                if (this.mainLoopIteration == this.updateInterval + 1)
-                    this.mainLoopIteration -= this.updateInterval
+                await this.songsLoopWrapper()
             }
         } catch (err) {
             this.lastError = err
             console.error(err)
         }
 
-        this.mainLoopTimeout = setTimeout(this.loop.bind(this), 60 * 1000)
+        this.mainLoopTimeout = setTimeout(this.loop.bind(this), this.updateInterval * 60 * 1000)
     }
 }

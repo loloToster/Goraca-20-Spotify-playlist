@@ -31,7 +31,7 @@
                 <div id="playlist-list" class="container-asset">
                     <% playlists.forEach(pl=> { %>
                         <div id="<%= pl.id %>" class="playlist <%= pl.id == setPl ? " set-pl" : "" %>">
-                            <img class="pl-image" src="<%= pl.images.length ? pl.images[0].url : " /default-pl.png" %>">
+                            <img class="pl-image" src="<%= pl.images?.length ? pl.images[0].url : " /default-pl.png" %>">
                             <div class="pl-name">
                                 <%=pl.name %>
                             </div>
